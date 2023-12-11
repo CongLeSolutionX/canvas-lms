@@ -13,13 +13,17 @@ gerrit_host = os.environ['GERRIT_HOST']
 ssh_key_path = os.environ.get('SSH_KEY_PATH')
 ssh_username = os.environ.get('SSH_USERNAME')
 master_bouncer_key = os.environ['MASTER_BOUNCER_KEY']
-authorization = base64.encodebytes("master_bouncer:{}".format(master_bouncer_key).encode()).decode().strip()
+authorization = (
+    base64.encodebytes(f"master_bouncer:{master_bouncer_key}".encode())
+    .decode()
+    .strip()
+)
 
 def fp(message):
     print(message, flush=True)
 
 def cmd_exec(command, **kwargs):
-    fp("> {}".format(command))
+    fp(f"> {command}")
     fetch_environment = os.environ.copy()
     if ssh_key_path and ssh_username:
         fetch_environment['GIT_SSH_COMMAND'] = 'ssh -i $SSH_KEY_PATH -l $SSH_USERNAME'
@@ -28,27 +32,31 @@ def cmd_exec(command, **kwargs):
         exit(code)
 
 def git_fetch(info):
-    cmd_exec("git fetch ssh://{}:29418/canvas-lms {}".format(gerrit_host, info["refspec"]))
+    cmd_exec(f'git fetch ssh://{gerrit_host}:29418/canvas-lms {info["refspec"]}')
 
 def gerrit_get(path):
-    url = "https://{}/{}".format(gerrit_host, path)
-    request = http.Request(url, headers={'Authorization': 'Basic {}'.format(authorization)})
+    url = f"https://{gerrit_host}/{path}"
+    request = http.Request(
+        url, headers={'Authorization': f'Basic {authorization}'}
+    )
     response = http.urlopen(request)
     return json.loads(response.read().decode('utf8').split(")]}'")[1])
 
 def perform_check(info):
-    command = ["docker run"]
-    command.append("--volume $WORKSPACE/.git:/app/.git")
-    command.append("--env MASTER_BOUNCER_KEY={}".format(master_bouncer_key))
-    command.append("--env GERGICH_REVIEW_LABEL=Lint-Review")
-    command.append("--env GERRIT_HOST={}".format(gerrit_host))
-    command.append("--env GERRIT_PROJECT=canvas-lms")
-    command.append("--env GERRIT_BRANCH={}".format(info["branch"]))
-    command.append("--env GERRIT_PATCHSET_REVISION={}".format(info["sha"]))
-    command.append("--env GERRIT_CHANGE_ID={}".format(info["change_id"]))
-    command.append("--env GERRIT_PATCHSET_NUMBER={}".format(info["change_number"]))
-    command.append("--entrypoint master_bouncer")
-    command.append("instructure/gergich check")
+    command = [
+        "docker run",
+        "--volume $WORKSPACE/.git:/app/.git",
+        f"--env MASTER_BOUNCER_KEY={master_bouncer_key}",
+        "--env GERGICH_REVIEW_LABEL=Lint-Review",
+        f"--env GERRIT_HOST={gerrit_host}",
+        "--env GERRIT_PROJECT=canvas-lms",
+        f'--env GERRIT_BRANCH={info["branch"]}',
+        f'--env GERRIT_PATCHSET_REVISION={info["sha"]}',
+        f'--env GERRIT_CHANGE_ID={info["change_id"]}',
+        f'--env GERRIT_PATCHSET_NUMBER={info["change_number"]}',
+        "--entrypoint master_bouncer",
+        "instructure/gergich check",
+    ]
     cmd_exec(' '.join(command))
 
 def main():
@@ -64,7 +72,7 @@ def main():
             "branch": change["branch"]
         }
         fp(">> ==================================================")
-        fp(">> checking change: {}".format(info))
+        fp(f">> checking change: {info}")
         if (DEBUG):
             pprint.pprint(change)
         git_fetch(info)

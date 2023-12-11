@@ -10,13 +10,13 @@ def fp(message):
 def main():
     results = {}
     for file in glob.glob('./**/.resultset.json', recursive=True):
-        fp("copying results file: {}".format(file))
+        fp(f"copying results file: {file}")
         with open(file) as json_file:
             resultset = json.load(json_file)
         for process in resultset:
             node = file.split("/")[-2]
-            key = "{}:{}".format(node, process)
-            fp(" > found key: {}".format(key))
+            key = f"{node}:{process}"
+            fp(f" > found key: {key}")
             results[key] = resultset[process]
     for process in results:
         fp(process)
